@@ -5,7 +5,7 @@ destination = "LAX"
 departure_date = "2025-12-01"
 adults = 1
 
-flights = search_flights
+flights = search_flights(origin, destination, departure_date, adults)
 
 for i, f in enumerate(flights, 1):
     print(f"Flight Option {i}:")
