@@ -16,7 +16,8 @@ def search_flights(origin, destination, departure_date, adults=1):
                 "airline": flight['validatingAirlineCodes'][0],
                 "price": flight['price']['total'],
                 "departure": flight['itineraries'][0]['segments'][0]['departure']['at'],
-                "arrival": flight['itineraries'][0]['segments'][0]['arrival']['at']
+                "arrival": flight['itineraries'][0]['segments'][0]['arrival']['at'],
+                "link": flight.get('offerItems', [{}])[0].get('services', [{}])[0].get('segments', [{}])[0].get('flightOfferURL', '#')
             }
             results.append(offer)
         return results
