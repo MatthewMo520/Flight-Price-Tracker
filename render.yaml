@@ -1,0 +1,20 @@
+services:
+  # Backend API Service
+  - type: web
+    name: flight-tracker-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 5000
+    healthCheckPath: /api/health
+
+  # Frontend Static Site
+  - type: web
+    name: flight-tracker-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        sync: false  # You'll set this manually to your backend URL

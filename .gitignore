@@ -1,9 +1,21 @@
+# Python
 venv/
 __pycache__/
 *.pyc
 
+# OS
 .DS_Store
 thumbs.db
 
-.streamlit/
+# Environment
 .env
+.env.local
+
+# Frontend
+frontend/node_modules/
+frontend/build/
+frontend/.env.local
+
+# Build artifacts
+*.log
+nul

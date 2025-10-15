@@ -1,92 +1,94 @@
-# Flight Price Tracker ✈️
+# Flight Price Tracker
 
-A free web-based flight price tracker that scrapes **Kayak.com** to find the cheapest flights. No API keys needed!
+A full-stack web app that scrapes Kayak.com to find cheap flights. No API keys needed.
 
 ## Features
 
-- 🔍 **Real-time search** - Scrapes live data from Kayak.com
-- 💰 **Price sorting** - Automatically sorted by price (cheapest first)
-- 🔗 **Booking links** - Direct links to Kayak search results
-- 🆓 **Completely free** - No API costs, no subscriptions!
-- 💻 **Runs locally** - Full control over your data
+- Search real-time flight prices from Kayak
+- Results sorted by price (cheapest first)
+- Direct booking links to Kayak
+- Clean UI with aviation colors
+- Deploy to Render.com for free
 
-## How It Works
+## Tech Stack
 
-The app uses Selenium to scrape flight data from Kayak.com, giving you real-time prices without needing expensive flight APIs.
-
-## ⚠️ Important Limitations
-
-- **LOCAL ONLY**: This app requires Selenium + Chrome and **cannot** be deployed to Streamlit Cloud or similar platforms
-- Web scraping takes 15-30 seconds per search
-- Booking links go to Kayak search pages (not direct booking to airlines)
-- May break if Kayak changes their website structure
-
-## Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/Flight-Price-Tracker.git
-cd Flight-Price-Tracker
-```
-
-2. Create a virtual environment and install dependencies:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-## Usage
-
-Run the Streamlit app:
-```bash
-streamlit run app.py
-```
-
-Then:
-1. Enter origin airport code (e.g., YYZ for Toronto)
-2. Enter destination airport code (e.g., LAX for Los Angeles)
-3. Select departure date
-4. Choose number of adults
-5. Click "Search Flights"
-6. Wait 15-20 seconds while Kayak is scraped
-7. View results sorted by price
-8. Click "Book Flight" to go to Kayak!
+**Frontend:** React, CSS
+**Backend:** Flask, Selenium, BeautifulSoup
+**Deployment:** Docker, Render.com
 
 ## Project Structure
 
 ```
 Flight-Price-Tracker/
-├── app.py                    # Main Streamlit application
-├── flight_search.py          # Flight search interface
-├── multi_scraper.py          # Kayak scraper wrapper
-├── scraper_utils.py          # Shared scraper utilities (driver setup)
-├── kayak_scraper.py          # Kayak web scraper
-├── requirements.txt          # Python dependencies
-└── README.md                 # This file
+├── backend/
+│   ├── app.py                   # Flask API
+│   ├── requirements.txt
+│   └── scrapers/
+│       ├── kayak_scraper.py     # Web scraper
+│       ├── scraper_utils.py
+│       └── multi_scraper.py
+├── frontend/
+│   ├── src/
+│   │   ├── App.js               # Main React component
+│   │   ├── App.css              # Styles
+│   │   └── index.js
+│   ├── public/
+│   └── package.json
+├── Dockerfile                    # Backend container config
+├── render.yaml                   # Deployment config
+└── DEPLOYMENT.md                 # Deploy instructions
 ```
 
-## Technologies Used
+## Run Locally
 
-- **Streamlit** - Web interface
-- **Selenium** - Web scraping automation
-- **BeautifulSoup** - HTML parsing
-- **Pandas** - Data processing
-- **ChromeDriver** - Automated browser control
+**Backend:**
+```bash
+cd backend
+pip install -r requirements.txt
+python app.py
+```
 
-## Why Not Deploy to Streamlit Cloud?
+**Frontend:**
+```bash
+cd frontend
+npm install
+npm start
+```
 
-Streamlit Cloud (and most cloud platforms) **do not support Selenium** because:
-- They don't have Chrome/Chromium installed
-- They don't allow installing browser drivers
-- Web scraping requires a full browser environment
+Frontend runs on `localhost:3000`, backend on `localhost:5000`.
 
-**This app must run locally on your machine.**
+## Deploy to Render
 
-## Legal Note
+1. Push code to GitHub
+2. Create Web Service on Render (use Docker)
+3. Create Static Site for frontend
+4. Set `REACT_APP_API_URL` to your backend URL
 
-This tool is for educational purposes. Please respect Kayak's terms of service and use responsibly.
+Full instructions in [DEPLOYMENT.md](DEPLOYMENT.md).
+
+## How It Works
+
+1. User enters flight info (origin, destination, date)
+2. Backend scrapes Kayak.com with Selenium
+3. Parses flight data (airline, price, times)
+4. Returns sorted results to frontend
+5. User clicks "Book Flight" to go to Kayak
+
+## Config Files
+
+**Dockerfile:** Packages Flask backend + Chrome for Selenium into a container
+**render.yaml:** Tells Render how to deploy frontend and backend
+
+## Limitations
+
+- Takes 15-20 seconds per search (Selenium is slow)
+- May break if Kayak changes their HTML
+- Free tier on Render sleeps after 15 min inactivity
+
+## Legal
+
+For educational use. Respect Kayak's terms of service.
 
 ## License
 
-MIT License - feel free to use and modify!
+MIT
