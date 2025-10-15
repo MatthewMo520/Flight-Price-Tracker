@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import './App.css';
 
-// Set your backend URL here - change this when deploying
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 function App() {
@@ -60,6 +59,7 @@ function App() {
       </header>
 
       <div className="container">
+        {/* ----- SEARCH FORM ----- */}
         <form onSubmit={searchFlights} className="search-form">
           <div className="form-row">
             <div className="form-group">
@@ -124,6 +124,7 @@ function App() {
           </button>
         </form>
 
+        {/* ----- LOADING STATE ----- */}
         {loading && (
           <div className="loading">
             <div className="spinner"></div>
@@ -131,12 +132,14 @@ function App() {
           </div>
         )}
 
+        {/* ----- ERROR STATE ----- */}
         {error && (
           <div className="error">
             <p>Error: {error}</p>
           </div>
         )}
 
+        {/* ----- RESULTS ----- */}
         {flights.length > 0 && (
           <div className="results">
             <h2>Found {flights.length} Flights</h2>

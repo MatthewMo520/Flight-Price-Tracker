@@ -4,21 +4,12 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
 def setup_driver(headless=True):
-    """
-    Initialize Chrome driver with anti-detection measures
-
-    Args:
-        headless: Whether to run in headless mode (default: True)
-
-    Returns:
-        Configured Chrome WebDriver instance
-    """
     chrome_options = Options()
 
     if headless:
-        chrome_options.add_argument("--headless=new")  # Use new headless mode
+        chrome_options.add_argument("--headless=new")
 
-    # Anti-detection settings
+    #----- ANTI-DETECTION SETTINGS -----#
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
@@ -32,7 +23,6 @@ def setup_driver(headless=True):
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
-    # Modify navigator.webdriver flag
     driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
         'source': '''
             Object.defineProperty(navigator, 'webdriver', {
