@@ -119,13 +119,32 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
                 departure_datetime = f"{departure_date} {departure_time}" if departure_time else f"{departure_date} 00:00"
                 arrival_datetime = f"{departure_date} {arrival_time}" if arrival_time else f"{departure_date} 00:00"
 
-                # Get booking link - Kayak uses data-resultid or has a link to booking page
-                link_elem = flight_div.find('a', href=True)
-                if link_elem and 'http' in link_elem['href']:
-                    booking_link = link_elem['href']
-                else:
-                    # Use Kayak search URL
-                    booking_link = url
+                # Try to get specific booking link by clicking into the flight
+                booking_link = url  # Default fallback
+
+                try:
+                    # Find the clickable flight element
+                    flight_elements = driver.find_elements(By.CSS_SELECTOR, "[data-resultid]")
+
+                    if idx < len(flight_elements):
+                        # Scroll to element and click
+                        driver.execute_script("arguments[0].scrollIntoView(true);", flight_elements[idx])
+                        time.sleep(0.5)
+                        flight_elements[idx].click()
+                        time.sleep(2)  # Wait for booking options
+
+                        # Look for "View Deal" or booking buttons
+                        booking_buttons = driver.find_elements(By.XPATH, "//a[contains(text(), 'View') or contains(@class, 'booking') or contains(text(), 'Select')]")
+
+                        if booking_buttons:
+                            # Get the first booking link
+                            potential_link = booking_buttons[0].get_attribute('href')
+                            if potential_link and 'http' in potential_link:
+                                booking_link = potential_link
+                                print(f"  → Got specific link")
+
+                except Exception as e:
+                    pass  # Silently fallback to main URL
 
                 if price > 0:  # Only add if we got a price
                     flights_data.append({
@@ -133,10 +152,11 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
                         "price": str(int(price)),
                         "departure": departure_datetime,
                         "arrival": arrival_datetime,
-                        "link": booking_link
+                        "link": booking_link,
+                        "source": "Kayak"
                     })
 
-                    print(f"Flight {idx + 1}: {airline} - ${int(price)}")
+                    print(f"[Kayak] Flight {idx + 1}: {airline} - ${int(price)}")
 
             except Exception as e:
                 print(f"Error parsing flight {idx}: {e}")

@@ -75,7 +75,8 @@ if st.session_state.flights:
 
     # Display cheapest flight highlight
     cheapest = df_flights.iloc[0]
-    st.info(f"💰 Cheapest Flight: {cheapest['airline']} - ${cheapest['price']:.2f}")
+    source = cheapest.get('source', 'Unknown')
+    st.info(f"💰 Cheapest Flight: {cheapest['airline']} - ${cheapest['price']:.2f} (found on {source})")
 
     #----PRICE SCATTER PLOT (only if we have valid times)----#
     if df_flights["Duration (hrs)"].sum() > 0:
@@ -114,9 +115,14 @@ if st.session_state.flights:
     display_df["Duration"] = display_df["Duration (hrs)"].apply(lambda x: f"{x:.1f}h")
     display_df["Booking Link"] = display_df["link"]
 
-    # Select columns for display
-    table_df = display_df[["airline", "Departure", "Arrival", "Duration", "Price", "Booking Link"]]
-    table_df.columns = ["Airline", "Departure", "Arrival", "Duration", "Price (USD)", "Book"]
+    # Add source column if available
+    if 'source' in display_df.columns:
+        display_df["Source"] = display_df["source"]
+        table_df = display_df[["airline", "Departure", "Arrival", "Duration", "Price", "Source", "Booking Link"]]
+        table_df.columns = ["Airline", "Departure", "Arrival", "Duration", "Price (USD)", "Source", "Book"]
+    else:
+        table_df = display_df[["airline", "Departure", "Arrival", "Duration", "Price", "Booking Link"]]
+        table_df.columns = ["Airline", "Departure", "Arrival", "Duration", "Price (USD)", "Book"]
 
     # Display with Streamlit dataframe (supports clickable links)
     st.dataframe(
