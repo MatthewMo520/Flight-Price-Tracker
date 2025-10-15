@@ -2,6 +2,7 @@ import streamlit as st
 from flight_search import search_flights
 import pandas as pd
 import plotly.express as px
+from datetime import timedelta
 
 #----PAGE SETUP----#
 st.set_page_config(
@@ -10,6 +11,12 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="expanded"
 )
+
+# Initialize session state
+if "flights" not in st.session_state:
+    st.session_state.flights = []
+if "search_params" not in st.session_state:
+    st.session_state.search_params = {}
 
 #----APP TITLE----#
 st.title("Flight Price Tracker ✈️")
@@ -20,83 +27,103 @@ destination = st.text_input("Destination Airport Code (e.g., LAX for Los Angeles
 departure_date = st.date_input("Departure Date (YYYY-MM-DD): ")
 adults = st.number_input("Number of Adults:", min_value=1, max_value=10, value=1)
 
-flights = []
-
 #----SEARCH BUTTON----#
 if st.button("Search Flights"):
     if origin and destination:
-        flights = search_flights(origin, destination, departure_date, adults)
-        if flights:
-            st.success(f"Found {len(flights)} flights!")
-        else:
-            st.warning("No flights found. Please try different parameters.")
+        with st.spinner("Searching for flights..."):
+            try:
+                # Convert date to string format for API
+                date_str = departure_date.strftime("%Y-%m-%d")
+                flights = search_flights(origin, destination, date_str, adults)
+
+                if flights:
+                    st.session_state.flights = flights
+                    st.session_state.search_params = {
+                        "origin": origin,
+                        "destination": destination,
+                        "date": date_str,
+                        "adults": adults
+                    }
+                    st.success(f"Found {len(flights)} flights!")
+                else:
+                    st.warning("No flights found. Please try different parameters.")
+                    st.session_state.flights = []
+            except Exception as e:
+                st.error(f"Error searching for flights: {str(e)}")
+                st.session_state.flights = []
     else:
         st.error("Please enter both origin and destination airport codes.")
 
 #----DISPLAY RESULTS----#
-if flights:
-    df_flights = pd.DataFrame(flights)
+if st.session_state.flights:
+    df_flights = pd.DataFrame(st.session_state.flights)
 
+    # Data processing
     df_flights["price"] = df_flights["price"].astype(float)
-    df_flights["Departure Time"] = pd.to_datetime(df_flights["departure"])
-    df_flights["Arrival Time"] = pd.to_datetime(df_flights["arrival"])
-    df_flights["Price (USD)"] = df_flights["price"].apply(lambda x: f"${x:.2f}")
 
-    df_flights["Booking Link"] = df_flights.apply(
-        lambda row: f"https://www.google.com/flights?hl=en#flt={origin}.{destination}.{departure_date};c:USD;e:1;sd:1;t:f",
-        axis=1
-    )
+    # Try to parse times, use NaT if fails
+    df_flights["Departure Time"] = pd.to_datetime(df_flights["departure"], errors='coerce')
+    df_flights["Arrival Time"] = pd.to_datetime(df_flights["arrival"], errors='coerce')
 
+    # Calculate flight duration (handle NaT values)
+    df_flights["Duration (hrs)"] = (df_flights["Arrival Time"] - df_flights["Departure Time"]).dt.total_seconds() / 3600
+    # Fill NaN durations with 0
+    df_flights["Duration (hrs)"] = df_flights["Duration (hrs)"].fillna(0)
 
-    #----PRICE SCATTER PLOT----#
-    fig = px.scatter(
-        df_flights,
-        x="Departure Time",
-        y="price",
-        hover_data={
-            "airline": True,
-            "Departure Time": True,
-            "Arrival Time": True,
-            "price": ':.2f',
-            "Booking Link": False
-        },
-        labels={"price": "Price (USD)"},
-        title=f"Flight Prices from {origin} to {destination}",
-    )
+    # Sort by price (cheapest first)
+    df_flights = df_flights.sort_values("price")
 
-    fig.update_traces(marker=dict(size=10, color="skyblue"))
-    fig.update_layout(hovermode="closest")
+    # Display cheapest flight highlight
+    cheapest = df_flights.iloc[0]
+    st.info(f"💰 Cheapest Flight: {cheapest['airline']} - ${cheapest['price']:.2f}")
 
-    st.plotly_chart(fig, use_container_width=True)
+    #----PRICE SCATTER PLOT (only if we have valid times)----#
+    if df_flights["Duration (hrs)"].sum() > 0:
+        fig = px.scatter(
+            df_flights,
+            x="Departure Time",
+            y="price",
+            size="Duration (hrs)",
+            hover_data={
+                "airline": True,
+                "Departure Time": True,
+                "Arrival Time": True,
+                "Duration (hrs)": ":.1f",
+                "price": ':.2f',
+            },
+            labels={"price": "Price (USD)"},
+            title=f"Flight Prices from {st.session_state.search_params.get('origin', origin)} to {st.session_state.search_params.get('destination', destination)}",
+        )
+
+        fig.update_traces(marker=dict(color="skyblue"))
+        fig.update_layout(hovermode="closest")
+
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        # Simple bar chart if times aren't available
+        st.bar_chart(df_flights[["price"]].set_index(df_flights.index))
 
     #----FLIGHT OPTIONS TABLE----#
-    st.subheader("Flight Details Table")
+    st.subheader("Flight Details")
 
-    table_html = """
-    <table style="width:100%; border-collapse: collapse;">
-            <tr style="background-color: #262730; color: white;">
-                <th style="padding: 8px; border: 1px solid #444;">Airline</th>
-                <th style="padding: 8px; border: 1px solid #444;">Departure Time</th>
-                <th style="padding: 8px; border: 1px solid #444;">Arrival Time</th>
-                <th style="padding: 8px; border: 1px solid #444;">Price (USD)</th>
-                <th style="padding: 8px; border: 1px solid #444;">Booking Link</th>
-            </tr>
-    """
+    # Prepare display dataframe
+    display_df = df_flights.copy()
+    display_df["Departure"] = display_df["Departure Time"].dt.strftime("%Y-%m-%d %H:%M")
+    display_df["Arrival"] = display_df["Arrival Time"].dt.strftime("%Y-%m-%d %H:%M")
+    display_df["Price"] = display_df["price"].apply(lambda x: f"${x:.2f}")
+    display_df["Duration"] = display_df["Duration (hrs)"].apply(lambda x: f"{x:.1f}h")
+    display_df["Booking Link"] = display_df["link"]
 
-    for _, row in df_flights.iterrows():
-        table_html += f"""
-            <tr style="background-color: #0E1117; color: white; text-align: center;">
-                <td style="padding: 8px; border: 1px solid #444; text-align: center;">{row['airline']}</td>
-                <td style="padding: 8px; border: 1px solid #444; text-align: center;">{row['Departure Time']}</td>
-                <td style="padding: 8px; border: 1px solid #444; text-align: center;">{row['Arrival Time']}</td>
-                <td style="padding: 8px; border: 1px solid #444; text-align: center;">{row['Price (USD)']}</td>
-                <td style="padding: 8px; border: 1px solid #444;">
-                    <a href="{row["Booking Link"]}" target="_blank" style="color: #1E90FF; text-decoration: none;">
-                        Book Flight
-                    </a>
-                </td>
-            </tr>
-                
-        """
-    table_html += "</table>"
-    st.markdown(table_html, unsafe_allow_html=True)
+    # Select columns for display
+    table_df = display_df[["airline", "Departure", "Arrival", "Duration", "Price", "Booking Link"]]
+    table_df.columns = ["Airline", "Departure", "Arrival", "Duration", "Price (USD)", "Book"]
+
+    # Display with Streamlit dataframe (supports clickable links)
+    st.dataframe(
+        table_df,
+        column_config={
+            "Book": st.column_config.LinkColumn("Book", display_text="Book Flight")
+        },
+        hide_index=True,
+        use_container_width=True
+    )
