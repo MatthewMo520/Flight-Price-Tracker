@@ -1,14 +1,12 @@
 # Flight Price Tracker
 
-A full-stack web app that scrapes Kayak.com to find cheap flights. No API keys needed.
+A full-stack web app that scrapes Kayak.com to find cheap flights.
 
 ## Features
 
 - Search real-time flight prices from Kayak
 - Results sorted by price (cheapest first)
 - Direct booking links to Kayak
-- Clean UI with aviation colors
-- Deploy to Render.com for free
 
 ## Tech Stack
 
@@ -21,25 +19,25 @@ A full-stack web app that scrapes Kayak.com to find cheap flights. No API keys n
 ```
 Flight-Price-Tracker/
 ├── backend/
-│   ├── app.py                   # Flask API
+│   ├── app.py                   
 │   ├── requirements.txt
 │   └── scrapers/
-│       ├── kayak_scraper.py     # Web scraper
+│       ├── kayak_scraper.py     
 │       ├── scraper_utils.py
 │       └── multi_scraper.py
 ├── frontend/
 │   ├── src/
-│   │   ├── App.js               # Main React component
-│   │   ├── App.css              # Styles
+│   │   ├── App.js               
+│   │   ├── App.css             
 │   │   └── index.js
 │   ├── public/
 │   └── package.json
-├── Dockerfile                    # Backend container config
-├── render.yaml                   # Deployment config
-└── DEPLOYMENT.md                 # Deploy instructions
+├── Dockerfile                    
+├── render.yaml                   
+└── DEPLOYMENT.md                 
 ```
 
-## Run Locally
+## To Run Locally:
 
 **Backend:**
 ```bash
@@ -57,7 +55,7 @@ npm start
 
 Frontend runs on `localhost:3000`, backend on `localhost:5000`.
 
-## Deploy to Render
+## To Deploy to Render
 
 1. Push code to GitHub
 2. Create Web Service on Render (use Docker)
@@ -89,6 +87,9 @@ Full instructions in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 For educational use. Respect Kayak's terms of service.
 
-## License
+## Future Applications
 
-MIT
+- email system that sends out daily alerts
+- scraping more websites (Lots of Captcha so it is hard)
+   - can use paid apis to do as well
+- include feature for round trips in addition to the one ways
