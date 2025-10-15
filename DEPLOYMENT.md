@@ -1,4 +1,4 @@
-# 🚀 Deployment Guide - Render.com
+# Deployment Guide - Render.com
 
 This guide will help you deploy your Flight Price Tracker to Render.com (free tier).
 
@@ -12,7 +12,7 @@ This guide will help you deploy your Flight Price Tracker to Render.com (free ti
 
 ```bash
 git add .
-git commit -m "Full-stack Flight Price Tracker with React + Flask"
+git commit -m "Full-stack Flight Price Tracker"
 git push origin main
 ```
 
