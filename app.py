@@ -78,32 +78,6 @@ if st.session_state.flights:
     source = cheapest.get('source', 'Unknown')
     st.info(f"💰 Cheapest Flight: {cheapest['airline']} - ${cheapest['price']:.2f} (found on {source})")
 
-    #----PRICE SCATTER PLOT (only if we have valid times)----#
-    if df_flights["Duration (hrs)"].sum() > 0:
-        fig = px.scatter(
-            df_flights,
-            x="Departure Time",
-            y="price",
-            size="Duration (hrs)",
-            hover_data={
-                "airline": True,
-                "Departure Time": True,
-                "Arrival Time": True,
-                "Duration (hrs)": ":.1f",
-                "price": ':.2f',
-            },
-            labels={"price": "Price (USD)"},
-            title=f"Flight Prices from {st.session_state.search_params.get('origin', origin)} to {st.session_state.search_params.get('destination', destination)}",
-        )
-
-        fig.update_traces(marker=dict(color="skyblue"))
-        fig.update_layout(hovermode="closest")
-
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        # Simple bar chart if times aren't available
-        st.bar_chart(df_flights[["price"]].set_index(df_flights.index))
-
     #----FLIGHT OPTIONS TABLE----#
     st.subheader("Flight Details")
 
