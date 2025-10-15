@@ -12,6 +12,10 @@ CORS(app)
 
 #----- API ROUTES -----#
 
+@app.route('/', methods=['GET'])
+def root():
+    return jsonify({"message": "Flight Price Tracker API", "endpoints": ["/api/health", "/api/search-flights"]})
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy", "message": "Flight Price Tracker API is running"})
