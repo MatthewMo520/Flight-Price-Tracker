@@ -154,9 +154,3 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
         if driver:
             driver.quit()
 
-# Test function
-if __name__ == "__main__":
-    flights = scrape_kayak_flights("YYZ", "LAX", "2025-11-15", 1)
-    print(f"\nFound {len(flights)} flights:")
-    for flight in flights:
-        print(f"{flight['airline']}: ${flight['price']} - {flight['link'][:80]}...")

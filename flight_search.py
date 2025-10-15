@@ -1,4 +1,4 @@
-from google_flights_scraper import scrape_kayak_flights
+from kayak_scraper import scrape_kayak_flights
 
 #----SEARCHES FOR FLIGHT OPTIONS AND RETURNS PRICE, AIRLINE AND DEPARTURE/ARRIVAL TIMES----#
 def search_flights(origin, destination, departure_date, adults=1):
