@@ -1,12 +1,14 @@
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import time
 import re
 from scraper_utils import setup_driver
 
-def scrape_kayak_flights(origin, destination, departure_date, adults=1):
+def scrape_google_flights(origin, destination, departure_date, adults=1):
     """
-    Scrape Kayak for flight information including booking links
+    Scrape Google Flights for flight information
 
     Args:
         origin: Origin airport code (e.g., 'YYZ')
@@ -19,39 +21,53 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
     """
     driver = None
     try:
-        # Setup driver
         driver = setup_driver(headless=True)
 
-        # Build Kayak URL
-        # Format: https://www.kayak.com/flights/YYZ-LAX/2025-11-15?sort=bestflight_a
-        url = f"https://www.kayak.com/flights/{origin}-{destination}/{departure_date}?sort=price_a"
+        # Build Google Flights URL
+        # Format: https://www.google.com/travel/flights?q=Flights%20from%20YYZ%20to%20LAX%20on%202025-11-20
+        url = f"https://www.google.com/travel/flights?q=Flights%20from%20{origin}%20to%20{destination}%20on%20{departure_date}"
 
-        print(f"Opening Kayak: {url}")
+        print(f"[Google Flights] Opening: {url}")
         driver.get(url)
 
-        # Wait for flights to load
-        print("Waiting for flights to load...")
-        time.sleep(15)  # Kayak loads slowly
+        # Wait longer for Google Flights to load
+        print("[Google Flights] Waiting for flights to load...")
+        time.sleep(25)  # Google Flights needs extra time
+
+        # Try to wait for flight results
+        try:
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "li[class*='pIav']"))
+            )
+        except:
+            print("[Google Flights] Timeout waiting for results, continuing anyway...")
 
         # Get page source
         soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-        # Find flight result divs (Kayak uses div with data-resultid)
-        flight_divs = soup.find_all('div', {'data-resultid': True})
+        # Find flight result items - Google uses dynamic class names
+        flight_items = soup.find_all('li', class_=lambda x: x and 'pIav' in str(x))
+
+        if not flight_items:
+            # Try alternative selectors
+            flight_items = soup.find_all('div', class_=lambda x: x and 'flight' in str(x).lower())
 
         flights_data = []
-        print(f"Found {len(flight_divs)} flight results")
+        print(f"[Google Flights] Found {len(flight_items)} flight results")
 
-        for idx, flight_div in enumerate(flight_divs[:10]):  # Limit to 10 flights
+        for idx, flight_item in enumerate(flight_items[:10]):  # Limit to 10 flights
             try:
-                # Extract airline
-                airline_elem = flight_div.find('div', class_='codeshares-airline-names')
+                # Extract airline - Google uses spans with specific classes
+                airline_elem = flight_item.find('span', class_=lambda x: x and 'sSHqwe' in str(x))
                 if not airline_elem:
-                    airline_elem = flight_div.find('div', class_=lambda x: x and 'airline' in str(x).lower())
+                    airline_elem = flight_item.find('div', class_=lambda x: x and 'airline' in str(x).lower())
                 airline = airline_elem.text.strip() if airline_elem else "Multiple Airlines"
 
                 # Extract price
-                price_elem = flight_div.find('div', class_=lambda x: x and 'price' in str(x).lower())
+                price_elem = flight_item.find('span', class_=lambda x: x and 'YMlIz' in str(x))
+                if not price_elem:
+                    price_elem = flight_item.find('div', class_=lambda x: x and 'price' in str(x).lower())
+
                 if price_elem:
                     price_text = re.sub(r'[^\d.]', '', price_elem.text)
                     try:
@@ -61,17 +77,17 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
                 else:
                     price = 0
 
-                # Extract times - try multiple selectors
-                time_elems = flight_div.find_all('span', class_=lambda x: x and ('time' in str(x).lower()))
+                # Extract times
+                time_elems = flight_item.find_all('span', class_=lambda x: x and 'mv1WYe' in str(x) if x else False)
+                if not time_elems:
+                    time_elems = flight_item.find_all('span', class_=lambda x: x and 'time' in str(x).lower() if x else False)
 
-                # Parse times from the text
                 departure_time = ""
                 arrival_time = ""
 
-                # Look for time patterns (e.g., "6:00 am", "18:00")
-                for elem in time_elems[:4]:  # Check first 4 time elements
+                # Look for time patterns
+                for elem in time_elems[:4]:
                     text = elem.text.strip()
-                    # Match time patterns like "6:00a", "18:00", "6:00 am"
                     if re.search(r'\d{1,2}:\d{2}', text):
                         if not departure_time:
                             departure_time = text
@@ -79,7 +95,7 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
                             arrival_time = text
                             break
 
-                # Format times - use placeholder if not found
+                # Format times
                 departure_datetime = f"{departure_date} {departure_time}" if departure_time else f"{departure_date} 00:00"
                 arrival_datetime = f"{departure_date} {arrival_time}" if arrival_time else f"{departure_date} 00:00"
 
@@ -88,17 +104,20 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
 
                 try:
                     # Find the clickable flight element
-                    flight_elements = driver.find_elements(By.CSS_SELECTOR, "[data-resultid]")
+                    flight_elements = driver.find_elements(By.CSS_SELECTOR, "li[class*='pIav']")
+
+                    if not flight_elements:
+                        flight_elements = driver.find_elements(By.CSS_SELECTOR, "div[role='button'][jsaction*='click']")
 
                     if idx < len(flight_elements):
                         # Scroll to element and click
                         driver.execute_script("arguments[0].scrollIntoView(true);", flight_elements[idx])
                         time.sleep(0.5)
                         flight_elements[idx].click()
-                        time.sleep(2)  # Wait for booking options
+                        time.sleep(3)  # Wait for booking options
 
-                        # Look for "View Deal" or booking buttons
-                        booking_buttons = driver.find_elements(By.XPATH, "//a[contains(text(), 'View') or contains(@class, 'booking') or contains(text(), 'Select')]")
+                        # Look for "Book" or "View prices" buttons
+                        booking_buttons = driver.find_elements(By.XPATH, "//a[contains(@href, 'booking.com') or contains(@href, 'expedia') or contains(text(), 'Book')]")
 
                         if booking_buttons:
                             # Get the first booking link
@@ -117,19 +136,19 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
                         "departure": departure_datetime,
                         "arrival": arrival_datetime,
                         "link": booking_link,
-                        "source": "Kayak"
+                        "source": "Google Flights"
                     })
 
-                    print(f"[Kayak] Flight {idx + 1}: {airline} - ${int(price)}")
+                    print(f"[Google Flights] Flight {idx + 1}: {airline} - ${int(price)}")
 
             except Exception as e:
-                print(f"Error parsing flight {idx}: {e}")
+                print(f"[Google Flights] Error parsing flight {idx}: {e}")
                 continue
 
         return flights_data
 
     except Exception as e:
-        print(f"Error scraping Kayak: {e}")
+        print(f"[Google Flights] Error: {e}")
         import traceback
         traceback.print_exc()
         return []
@@ -137,4 +156,3 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
     finally:
         if driver:
             driver.quit()
-

@@ -4,9 +4,9 @@ import time
 import re
 from scraper_utils import setup_driver
 
-def scrape_kayak_flights(origin, destination, departure_date, adults=1):
+def scrape_expedia_flights(origin, destination, departure_date, adults=1):
     """
-    Scrape Kayak for flight information including booking links
+    Scrape Expedia for flight information
 
     Args:
         origin: Origin airport code (e.g., 'YYZ')
@@ -19,39 +19,45 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
     """
     driver = None
     try:
-        # Setup driver
         driver = setup_driver(headless=True)
 
-        # Build Kayak URL
-        # Format: https://www.kayak.com/flights/YYZ-LAX/2025-11-15?sort=bestflight_a
-        url = f"https://www.kayak.com/flights/{origin}-{destination}/{departure_date}?sort=price_a"
+        # Build Expedia URL
+        # Format: https://www.expedia.com/Flights-Search?trip=oneway&leg1=from:YYZ,to:LAX,departure:2025-11-20&passengers=adults:1
+        url = f"https://www.expedia.com/Flights-Search?trip=oneway&leg1=from:{origin},to:{destination},departure:{departure_date}&passengers=adults:{adults}&mode=search"
 
-        print(f"Opening Kayak: {url}")
+        print(f"[Expedia] Opening: {url}")
         driver.get(url)
 
         # Wait for flights to load
-        print("Waiting for flights to load...")
-        time.sleep(15)  # Kayak loads slowly
+        print("[Expedia] Waiting for flights to load...")
+        time.sleep(20)  # Expedia loads slowly
 
         # Get page source
         soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-        # Find flight result divs (Kayak uses div with data-resultid)
-        flight_divs = soup.find_all('div', {'data-resultid': True})
+        # Find flight result items
+        flight_items = soup.find_all('li', {'data-test-id': 'offer-listing'})
+
+        if not flight_items:
+            # Try alternative selector
+            flight_items = soup.find_all('div', class_=lambda x: x and 'flight-card' in str(x).lower())
 
         flights_data = []
-        print(f"Found {len(flight_divs)} flight results")
+        print(f"[Expedia] Found {len(flight_items)} flight results")
 
-        for idx, flight_div in enumerate(flight_divs[:10]):  # Limit to 10 flights
+        for idx, flight_item in enumerate(flight_items[:10]):  # Limit to 10 flights
             try:
                 # Extract airline
-                airline_elem = flight_div.find('div', class_='codeshares-airline-names')
+                airline_elem = flight_item.find('span', {'data-test-id': 'airline-name'})
                 if not airline_elem:
-                    airline_elem = flight_div.find('div', class_=lambda x: x and 'airline' in str(x).lower())
+                    airline_elem = flight_item.find('div', class_=lambda x: x and 'airline' in str(x).lower())
                 airline = airline_elem.text.strip() if airline_elem else "Multiple Airlines"
 
                 # Extract price
-                price_elem = flight_div.find('div', class_=lambda x: x and 'price' in str(x).lower())
+                price_elem = flight_item.find('span', {'data-test-id': 'listing-price-dollars'})
+                if not price_elem:
+                    price_elem = flight_item.find('span', class_=lambda x: x and 'price' in str(x).lower())
+
                 if price_elem:
                     price_text = re.sub(r'[^\d.]', '', price_elem.text)
                     try:
@@ -61,17 +67,17 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
                 else:
                     price = 0
 
-                # Extract times - try multiple selectors
-                time_elems = flight_div.find_all('span', class_=lambda x: x and ('time' in str(x).lower()))
+                # Extract times
+                time_elems = flight_item.find_all('span', {'data-test-id': lambda x: x and 'time' in str(x) if x else False})
+                if not time_elems:
+                    time_elems = flight_item.find_all('span', class_=lambda x: x and 'time' in str(x).lower())
 
-                # Parse times from the text
                 departure_time = ""
                 arrival_time = ""
 
-                # Look for time patterns (e.g., "6:00 am", "18:00")
-                for elem in time_elems[:4]:  # Check first 4 time elements
+                # Look for time patterns
+                for elem in time_elems[:4]:
                     text = elem.text.strip()
-                    # Match time patterns like "6:00a", "18:00", "6:00 am"
                     if re.search(r'\d{1,2}:\d{2}', text):
                         if not departure_time:
                             departure_time = text
@@ -79,7 +85,7 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
                             arrival_time = text
                             break
 
-                # Format times - use placeholder if not found
+                # Format times
                 departure_datetime = f"{departure_date} {departure_time}" if departure_time else f"{departure_date} 00:00"
                 arrival_datetime = f"{departure_date} {arrival_time}" if arrival_time else f"{departure_date} 00:00"
 
@@ -88,7 +94,10 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
 
                 try:
                     # Find the clickable flight element
-                    flight_elements = driver.find_elements(By.CSS_SELECTOR, "[data-resultid]")
+                    flight_elements = driver.find_elements(By.CSS_SELECTOR, "[data-test-id='offer-listing']")
+
+                    if not flight_elements:
+                        flight_elements = driver.find_elements(By.CSS_SELECTOR, "li[class*='flight']")
 
                     if idx < len(flight_elements):
                         # Scroll to element and click
@@ -97,15 +106,18 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
                         flight_elements[idx].click()
                         time.sleep(2)  # Wait for booking options
 
-                        # Look for "View Deal" or booking buttons
-                        booking_buttons = driver.find_elements(By.XPATH, "//a[contains(text(), 'View') or contains(@class, 'booking') or contains(text(), 'Select')]")
+                        # Look for "Select" or booking buttons
+                        booking_buttons = driver.find_elements(By.XPATH, "//button[contains(text(), 'Select') or contains(text(), 'Choose')] | //a[contains(@href, 'booking') or contains(text(), 'Book')]")
 
                         if booking_buttons:
-                            # Get the first booking link
+                            # Get the first booking link or construct from button
                             potential_link = booking_buttons[0].get_attribute('href')
                             if potential_link and 'http' in potential_link:
                                 booking_link = potential_link
                                 print(f"  → Got specific link")
+                            else:
+                                # Some buttons trigger actions, keep current URL after click
+                                booking_link = driver.current_url
 
                 except Exception as e:
                     pass  # Silently fallback to main URL
@@ -117,19 +129,19 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
                         "departure": departure_datetime,
                         "arrival": arrival_datetime,
                         "link": booking_link,
-                        "source": "Kayak"
+                        "source": "Expedia"
                     })
 
-                    print(f"[Kayak] Flight {idx + 1}: {airline} - ${int(price)}")
+                    print(f"[Expedia] Flight {idx + 1}: {airline} - ${int(price)}")
 
             except Exception as e:
-                print(f"Error parsing flight {idx}: {e}")
+                print(f"[Expedia] Error parsing flight {idx}: {e}")
                 continue
 
         return flights_data
 
     except Exception as e:
-        print(f"Error scraping Kayak: {e}")
+        print(f"[Expedia] Error: {e}")
         import traceback
         traceback.print_exc()
         return []
@@ -137,4 +149,3 @@ def scrape_kayak_flights(origin, destination, departure_date, adults=1):
     finally:
         if driver:
             driver.quit()
-
